@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Messages</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A1120; --surface:#131C30; --surface-2:#1A2439; --border:#25314A;
+    --text:#EDEFF5; --text-2:#9AA6BC; --text-3:#657189; --teal:#3FD6B8; --red:#F26B5A;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;padding:40px 20px;}
+  .container{max-width:800px;margin:0 auto;}
+  h1{font-family:'Space Grotesk',sans-serif;font-size:28px;margin-bottom:6px;}
+  .sub{color:var(--text-2);font-size:14px;margin-bottom:30px;font-family:'JetBrains Mono',monospace;}
+  .msg-card{
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:20px;margin-bottom:14px;
+  }
+  .msg-card.unread{border-color:var(--teal);}
+  .msg-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;}
+  .msg-name{font-weight:600;font-size:16px;}
+  .msg-email{color:var(--teal);font-size:13px;font-family:'JetBrains Mono',monospace;}
+  .msg-date{color:var(--text-3);font-size:12px;font-family:'JetBrains Mono',monospace;}
+  .msg-body{color:var(--text-2);font-size:14px;line-height:1.6;margin-bottom:14px;}
+  .msg-actions{display:flex;gap:10px;}
+  .msg-actions button{
+    font-family:'JetBrains Mono',monospace;font-size:12px;padding:7px 14px;border-radius:7px;
+    border:1px solid var(--border);background:var(--surface-2);color:var(--text);cursor:pointer;
+  }
+  .msg-actions button:hover{border-color:var(--teal);color:var(--teal);}
+  .msg-actions button.delete:hover{border-color:var(--red);color:var(--red);}
+  .empty{color:var(--text-3);text-align:center;padding:60px 0;font-family:'JetBrains Mono',monospace;}
+  .refresh{
+    font-family:'JetBrains Mono',monospace;font-size:13px;padding:9px 18px;border-radius:8px;
+    border:1px solid var(--border);background:var(--surface);color:var(--teal);cursor:pointer;margin-bottom:24px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Contact Messages</h1>
+  <p class="sub">// pulled live from MongoDB via the backend API</p>
+  <button class="refresh" onclick="loadMessages()">↻ Refresh</button>
+  <div id="messages"></div>
+</div>
+
+<script>
+  const API_BASE = "http://localhost:5000";
+
+  async function loadMessages(){
+    const container = document.getElementById('messages');
+    container.innerHTML = '<p class="empty">Loading...</p>';
+    try{
+      const res = await fetch(`${API_BASE}/api/messages`);
+      const messages = await res.json();
+      if(!messages.length){
+        container.innerHTML = '<p class="empty">No messages yet.</p>';
+        return;
+      }
+      container.innerHTML = messages.map(m => `
+        <div class="msg-card ${m.read ? '' : 'unread'}" data-id="${m._id}">
+          <div class="msg-top">
+            <div>
+              <span class="msg-name">${escapeHtml(m.name)}</span> —
+              <span class="msg-email">${escapeHtml(m.email)}</span>
+            </div>
+            <span class="msg-date">${new Date(m.createdAt).toLocaleString()}</span>
+          </div>
+          <p class="msg-body">${escapeHtml(m.message)}</p>
+          <div class="msg-actions">
+            ${!m.read ? `<button onclick="markRead('${m._id}')">Mark as read</button>` : ''}
+            <button class="delete" onclick="deleteMsg('${m._id}')">Delete</button>
+          </div>
+        </div>
+      `).join('');
+    }catch(err){
+      container.innerHTML = '<p class="empty">Could not reach the backend. Is the server running?</p>';
+    }
+  }
+
+  async function markRead(id){
+    await fetch(`${API_BASE}/api/messages/${id}/read`, { method: 'PATCH' });
+    loadMessages();
+  }
+
+  async function deleteMsg(id){
+    if(!confirm('Delete this message?')) return;
+    await fetch(`${API_BASE}/api/messages/${id}`, { method: 'DELETE' });
+    loadMessages();
+  }
+
+  function escapeHtml(str){
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  loadMessages();
+</script>
+</body>
+</html>
